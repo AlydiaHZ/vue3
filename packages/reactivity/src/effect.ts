@@ -1,55 +1,58 @@
-// 用来保存当前正在执行的 effect
+// 临时需要执行的订阅事件
 import { Link } from './system'
 
-export let activeSub
+export let activeSub: ReactiveEffect
 
-export class ReactiveEffect<T = any> {
-  // 依赖项链表的头节点
-  deps: Link | undefined
-  // 依赖项链表的尾节点
+class ReactiveEffect {
+  depsHead: Link | undefined
   depsTail: Link | undefined
 
-  constructor(public fn: () => T) {}
+  constructor(public fn: Function) {}
 
-  run(): T {
-    // 先将当前的 effect 保存起来，用来处理嵌套的逻辑
-    const prevSub = activeSub
+  run() {
+    const prevSub: ReactiveEffect | undefined = activeSub
 
-    // 每次执行 fn 之前，把 this 放到 activeSub上面
+    // 每次执行 fn 之前，把 this 放到 activeSub 上面
     activeSub = this
-    this.depsTail = undefined
 
     try {
       return this.fn()
     } finally {
-      // 执行完成后，恢复之前的activeSub
+      // 执行完成后，恢复之前的 activeSub
       activeSub = prevSub
     }
   }
 
   /**
-   * 通知更新的方法，如果依赖的数据发生了变化，会调用这个函数
+   * 通知更新的方法，如果依赖的数据发生变化，会调用这个函数
    */
   notify() {
     this.scheduler()
   }
 
   /**
-   * 默认调用 run，如果用户传了，那以用户的为主，实例属性的优先级，优于原型属性
+   * 默认调用 run，如果用户传了，那以用户的为主
    */
   scheduler() {
     this.run()
   }
 }
 
+/**
+ * 订阅 ref
+ * @param fn 订阅事件
+ * @param options
+ */
 export function effect<T = any>(fn: () => T, options?: any) {
   const e = new ReactiveEffect(fn)
-
+  // scheduler
   Object.assign(e, options)
 
   e.run()
 
+  // 绑定函数的 this
   const runner = e.run.bind(e)
+  // 把 effect 的实例，放到函数属性中
   runner.effect = e
   return runner
 }

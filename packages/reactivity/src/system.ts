@@ -1,12 +1,11 @@
-import { ReactiveEffect } from './effect'
+import { RefImpl } from './ref'
+import { ReactiveEffect } from 'vue'
 
 /**
  * 依赖项
  */
 interface Dep {
-  // 订阅者链表的头节点
-  subs: Link | undefined
-  // 订阅者链表的尾节点
+  subsHead: Link | undefined
   subsTail: Link | undefined
 }
 
@@ -14,85 +13,49 @@ interface Dep {
  * 订阅者
  */
 interface Sub {
-  // 订阅者链表的头节点
-  deps: Link | undefined
-  // 订阅者链表的尾节点
-  depsTail: Link | undefined
+  subsHead: Link | undefined
+  subsTail: Link | undefined
 }
 
 /**
  * 链表节点
  */
 export interface Link {
-  // 订阅者
-  sub: Sub
-  // 下一个订阅者节点
+  sub: ReactiveEffect
   nextSub: Link | undefined
-  // 上一个订阅者节点
   prevSub: Link | undefined
-  // 依赖项
   dep: Dep
-  // 下一个依赖项节点
   nextDep: Link | undefined
+  prevDep: Link | undefined
 }
 
 /**
- * 建立链表关系
- * @param dep
- * @param sub
+ *
+ * @param dep 当前的 ref
+ * @param sub 临时订阅事件
  */
-export function link(dep: Dep, sub: ReactiveEffect) {
-  //region 尝试复用链表节点
-  const currentDep = sub.depsTail
-  /**
-   * 分两种情况：
-   * 如果头节点有，尾节点没有，那么尝试复用头节点
-   * 如果尾节点还有 nextDep，尝试复用尾节点的 nextDep
-   */
-  const nextDep = currentDep === undefined ? sub.deps : currentDep.nextDep
-  if (nextDep && nextDep.dep === dep) {
-    sub.depsTail = nextDep
-    return
-  }
-  //endregion
-
-  // 如果 activeSub 有，那就保存起来，等我更新的时候，触发
+export function link(dep: RefImpl, sub: ReactiveEffect) {
+  // 新建节点
   const newLink: Link = {
     sub,
     nextSub: undefined,
     prevSub: undefined,
     dep,
     nextDep: undefined,
+    prevDep: undefined,
   }
 
   //region 将链表节点和 dep 建立关联关系
-  /**
-   * 关联链表关系，分两种情况
-   * 1. 有尾节点 => 尾节点后加
-   * 2. 没尾节点 => 第一次关联，头节点加，头尾相同
-   */
+  // 将节点放入本 ref 的订阅者链表中
   if (dep.subsTail) {
+    // 如果有尾节点 => 不是头节点 => 在链表后面加入
     dep.subsTail.nextSub = newLink
     newLink.prevSub = dep.subsTail
     dep.subsTail = newLink
   } else {
-    dep.subs = newLink
+    // 如果无尾节点 => 是头节点 => 设置为头节点
+    dep.subsHead = newLink
     dep.subsTail = newLink
-  }
-  //endregion
-
-  //region 将链表节点和 sub 建立关联关系
-  /**
-   * 关联链表关系，分两种情况
-   * 1. 有尾节点 => 尾节点后加
-   * 2. 没尾节点 => 第一次关联，头节点加，头尾相同
-   */
-  if (sub.depsTail) {
-    sub.depsTail.nextDep = newLink
-    sub.depsTail = newLink
-  } else {
-    sub.deps = newLink
-    sub.depsTail = newLink
   }
   //endregion
 }
@@ -101,14 +64,12 @@ export function link(dep: Dep, sub: ReactiveEffect) {
  * 传播更新的函数
  * @param subs
  */
-export function propagate(subs) {
-  // 头节点
+export function propagate(subs: Link) {
   let link = subs
-  let queueEffect = []
+  let queuedEffect = []
   while (link) {
-    queueEffect.push(link.sub)
+    queuedEffect.push(link.sub)
     link = link.nextSub
   }
-
-  queueEffect.forEach(effect => effect.notify())
+  queuedEffect.forEach(effect => effect.notify())
 }

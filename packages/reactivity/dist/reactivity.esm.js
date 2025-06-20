@@ -4,14 +4,11 @@ var ReactiveEffect = class {
   constructor(fn) {
     this.fn = fn;
   }
-  // 依赖项链表的头节点
-  deps;
-  // 依赖项链表的尾节点
+  depsHead;
   depsTail;
   run() {
     const prevSub = activeSub;
     activeSub = this;
-    this.depsTail = void 0;
     try {
       return this.fn();
     } finally {
@@ -19,13 +16,13 @@ var ReactiveEffect = class {
     }
   }
   /**
-   * 通知更新的方法，如果依赖的数据发生了变化，会调用这个函数
+   * 通知更新的方法，如果依赖的数据发生变化，会调用这个函数
    */
   notify() {
     this.scheduler();
   }
   /**
-   * 默认调用 run，如果用户传了，那以用户的为主，实例属性的优先级，优于原型属性
+   * 默认调用 run，如果用户传了，那以用户的为主
    */
   scheduler() {
     this.run();
@@ -42,61 +39,37 @@ function effect(fn, options) {
 
 // packages/reactivity/src/system.ts
 function link(dep, sub) {
-  const currentDep = sub.depsTail;
-  const nextDep = currentDep === void 0 ? sub.deps : currentDep.nextDep;
-  if (nextDep && nextDep.dep === dep) {
-    sub.depsTail = nextDep;
-    return;
-  }
   const newLink = {
     sub,
     nextSub: void 0,
     prevSub: void 0,
     dep,
-    nextDep: void 0
+    nextDep: void 0,
+    prevDep: void 0
   };
   if (dep.subsTail) {
     dep.subsTail.nextSub = newLink;
     newLink.prevSub = dep.subsTail;
     dep.subsTail = newLink;
   } else {
-    dep.subs = newLink;
+    dep.subsHead = newLink;
     dep.subsTail = newLink;
-  }
-  if (sub.depsTail) {
-    sub.depsTail.nextDep = newLink;
-    sub.depsTail = newLink;
-  } else {
-    sub.deps = newLink;
-    sub.depsTail = newLink;
   }
 }
 function propagate(subs) {
   let link2 = subs;
-  let queueEffect = [];
+  let queuedEffect = [];
   while (link2) {
-    queueEffect.push(link2.sub);
+    queuedEffect.push(link2.sub);
     link2 = link2.nextSub;
   }
-  queueEffect.forEach((effect2) => effect2.notify());
+  queuedEffect.forEach((effect2) => effect2.notify());
 }
 
 // packages/reactivity/src/ref.ts
-function isRef(r) {
-  return !!(r && r["__v_isRef" /* IS_REF */]);
-}
-function ref(value) {
-  if (isRef(value)) {
-    return value;
-  }
-  return new RefImpl(value);
-}
 var RefImpl = class {
   _value;
-  ["__v_isRef" /* IS_REF */] = true;
-  // 头节点
-  subs;
-  // 尾节点
+  subsHead;
   subsTail;
   constructor(value) {
     this._value = value;
@@ -110,21 +83,21 @@ var RefImpl = class {
     triggerRef(this);
   }
 };
+function ref(value) {
+  return new RefImpl(value);
+}
 function trackRef(dep) {
-  if (activeSub) {
-    link(dep, activeSub);
-  }
+  if (activeSub) link(dep, activeSub);
 }
 function triggerRef(dep) {
-  if (dep.subs) {
-    propagate(dep.subs);
+  if (dep.subsHead) {
+    propagate(dep.subsHead);
   }
 }
 export {
-  ReactiveEffect,
+  RefImpl,
   activeSub,
   effect,
-  isRef,
   link,
   propagate,
   ref,

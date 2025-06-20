@@ -3,18 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <title>Title</title>
+  <style>
+      body {
+          width: auto;
+          height: auto;
+      }
+
+      button {
+          margin: 200px;
+      }
+  </style>
 </head>
 <body>
+<button type="button" id="btn">按钮</button>
 <script type="module">
-  // import { ref, effect } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
   import { ref, effect } from '../dist/reactivity.esm.js'
 
   const count = ref(0)
-  const flag = ref(true)
 
   effect(() => {
     count.value
   })
+  effect(() => {
+    count.value
+  })
+
+  document.querySelector('#btn').onclick = () => {
+    count.value = 1
+  }
 </script>
 </body>
 </html>
