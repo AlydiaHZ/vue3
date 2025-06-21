@@ -1,14 +1,25 @@
 import { activeSub } from './effect'
-import { Link, link, propagate } from './system'
+import { type Dependency, type Link, link, propagate } from './system'
+import { hasChanged, isObject } from '@vue/shared'
+import { reactive } from './reactive'
+import { ReactiveFlags } from './constants'
 
-export class RefImpl<T = any> {
+export interface Ref<T = any, S = T> {
+  get value(): T
+
+  set value(_: S)
+}
+
+class RefImpl<T = any> implements Dependency {
   _value: T
 
   subsHead: Link
   subsTail: Link
 
+  public readonly [ReactiveFlags.IS_REF] = true
+
   constructor(value: T) {
-    this._value = value
+    this._value = isObject(value) ? (reactive(value as object) as T) : value
   }
 
   get value() {
@@ -17,8 +28,12 @@ export class RefImpl<T = any> {
   }
 
   set value(newValue) {
-    this._value = newValue
-    triggerRef(this)
+    if (hasChanged(newValue, this._value)) {
+      this._value = isObject(newValue)
+        ? (reactive(newValue as object) as T)
+        : newValue
+      triggerRef(this)
+    }
   }
 }
 
@@ -42,4 +57,8 @@ export function triggerRef(dep: RefImpl) {
   if (dep.subsHead) {
     propagate(dep.subsHead)
   }
+}
+
+export function isRef(r: any): r is Ref {
+  return r ? r[ReactiveFlags.IS_REF] === true : false
 }

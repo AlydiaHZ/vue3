@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+<script type="module">
+  let a = new WeakMap()
+  let b = new Map([
+    ['age', 18],
+  ])
+  let c = { 'name': '张三' }
+  a.set(c, b)
+  b.set('sex', '男')
+  console.log('a ==> ', a)
+</script>
+</body>
+</html>
