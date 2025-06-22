@@ -40,8 +40,9 @@ function link(dep, sub) {
   }
 }
 function processComputedUpdate(sub) {
-  sub.update();
-  propagate(sub.subsHead);
+  if (sub.subsHead && sub.update()) {
+    propagate(sub.subsHead);
+  }
 }
 function propagate(subs) {
   let link2 = subs;
@@ -50,6 +51,7 @@ function propagate(subs) {
     const sub = link2.sub;
     if (!sub.tracking) {
       if ("update" in sub) {
+        sub.dirty = true;
         processComputedUpdate(sub);
       } else {
         queuedEffect.push(sub);
@@ -273,10 +275,13 @@ var ComputedRefImpl = class {
   // Subscriber
   depsHead;
   depsTail;
-  tracking;
   ["__v_isRef" /* IS_REF */] = true;
+  tracking = false;
+  dirty = true;
   get value() {
-    this.update();
+    if (this.dirty) {
+      this.update();
+    }
     if (activeSub) link(this, activeSub);
     return this._value;
   }
@@ -292,7 +297,10 @@ var ComputedRefImpl = class {
     setActiveSub(this);
     startTracking(this);
     try {
+      const oldValue = this._value;
       this._value = this.fn();
+      this.dirty = false;
+      return hasChanged(oldValue, this._value);
     } finally {
       setActiveSub(prevSub);
       endTracking(this);

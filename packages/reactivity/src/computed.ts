@@ -1,4 +1,4 @@
-import { isFunction } from '@vue/shared'
+import { hasChanged, isFunction } from '@vue/shared'
 import {
   Dependency,
   endTracking,
@@ -25,10 +25,11 @@ export class ComputedRefImpl<T = any> implements Dependency, Subscriber {
   subsTail: Link | undefined
   // Subscriber
   depsHead: Link | undefined
-  depsTail: Link | undefined
-  tracking: Boolean | undefined;
+  depsTail: Link | undefined;
 
   [ReactiveFlags.IS_REF] = true
+  tracking: Boolean | undefined = false
+  dirty = true
 
   constructor(
     public fn: ComputedGetter<T>,
@@ -36,7 +37,9 @@ export class ComputedRefImpl<T = any> implements Dependency, Subscriber {
   ) {}
 
   get value(): T {
-    this.update()
+    if (this.dirty) {
+      this.update()
+    }
     // 要和 sub 做关联关系
     if (activeSub) link(this, activeSub)
 
@@ -51,14 +54,17 @@ export class ComputedRefImpl<T = any> implements Dependency, Subscriber {
     }
   }
 
-  update() {
+  update(): boolean {
     const prevSub: Subscriber | undefined = activeSub
 
     // 每次执行 fn 之前，把 this 放到 activeSub 上面
     setActiveSub(this)
     startTracking(this)
     try {
+      const oldValue = this._value
       this._value = this.fn()
+      this.dirty = false
+      return hasChanged(oldValue, this._value)
     } finally {
       // 执行完成后，恢复之前的 activeSub
       setActiveSub(prevSub)

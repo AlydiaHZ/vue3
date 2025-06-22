@@ -99,8 +99,9 @@ function processComputedUpdate(sub: Computed) {
    * 1. 调用 update
    * 2. 通知 subs 链表上所有的 sub，重新执行
    */
-  sub.update()
-  propagate(sub.subsHead)
+  if (sub.subsHead && sub.update()) {
+    propagate(sub.subsHead)
+  }
 }
 
 /**
@@ -114,6 +115,7 @@ export function propagate(subs: Link) {
     const sub = link.sub
     if (!sub.tracking) {
       if ('update' in sub) {
+        sub.dirty = true
         processComputedUpdate(sub)
       } else {
         queuedEffect.push(sub)
