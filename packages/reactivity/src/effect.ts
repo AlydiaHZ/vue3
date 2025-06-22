@@ -1,17 +1,10 @@
 // 临时需要执行的订阅事件
-import { endTracking, Link, startTracking } from './system'
-
-export let activeSub: Subscriber | undefined = undefined
-
-export interface Subscriber {
-  depsHead: Link | undefined
-  depsTail: Link | undefined
-}
+import { endTracking, Link, startTracking, Subscriber } from './system'
 
 export class ReactiveEffect<T = any> implements Subscriber {
   depsHead: Link | undefined
   depsTail: Link | undefined
-  tracking: Boolean = false
+  tracking: Boolean | undefined
 
   constructor(public fn: () => T) {}
 
@@ -19,15 +12,14 @@ export class ReactiveEffect<T = any> implements Subscriber {
     const prevSub: Subscriber | undefined = activeSub
 
     // 每次执行 fn 之前，把 this 放到 activeSub 上面
-    activeSub = this
+    setActiveSub(this)
     startTracking(this)
     try {
       return this.fn()
     } finally {
-      endTracking(this)
-
       // 执行完成后，恢复之前的 activeSub
-      activeSub = prevSub
+      setActiveSub(prevSub)
+      endTracking(this)
     }
   }
 
@@ -63,4 +55,10 @@ export function effect<T = any>(fn: () => T, options?: any) {
   // 把 effect 的实例，放到函数属性中
   runner.effect = e
   return runner
+}
+
+export let activeSub: Subscriber | undefined = undefined
+
+export function setActiveSub(sub: Subscriber | undefined): void {
+  activeSub = sub
 }

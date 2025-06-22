@@ -1,4 +1,5 @@
 import { ReactiveEffect as Effect } from './effect'
+import { ComputedRefImpl as Computed } from './computed'
 
 /**
  * 依赖项
@@ -9,6 +10,7 @@ export interface Dependency {
 }
 
 export interface Subscriber {
+  tracking: Boolean
   depsHead: Link | undefined
   depsTail: Link | undefined
 }
@@ -17,7 +19,7 @@ export interface Subscriber {
  * 链表节点
  */
 export interface Link {
-  sub: Subscriber | Effect
+  sub: Subscriber | Effect | Computed
   nextSub: Link | undefined
   prevSub: Link | undefined
   dep: Dependency
@@ -91,6 +93,16 @@ export function link(dep: Dependency, sub: Subscriber): Link | undefined {
   //endregion
 }
 
+function processComputedUpdate(sub: Computed) {
+  /**
+   * 更新计算属性
+   * 1. 调用 update
+   * 2. 通知 subs 链表上所有的 sub，重新执行
+   */
+  sub.update()
+  propagate(sub.subsHead)
+}
+
 /**
  * 传播更新的函数
  * @param subs
@@ -100,8 +112,12 @@ export function propagate(subs: Link) {
   let queuedEffect = []
   while (link) {
     const sub = link.sub
-    if (!(sub as Effect).tracking) {
-      queuedEffect.push(sub)
+    if (!sub.tracking) {
+      if ('update' in sub) {
+        processComputedUpdate(sub)
+      } else {
+        queuedEffect.push(sub)
+      }
     }
     link = link.nextSub
   }
@@ -112,7 +128,7 @@ export function propagate(subs: Link) {
  * 开始追踪依赖，将 depsTail，尾节点设置成 undefined
  * @param sub
  */
-export function startTracking(sub: Effect): void {
+export function startTracking(sub: Subscriber): void {
   sub.tracking = true
   sub.depsTail = undefined
 }
@@ -121,7 +137,7 @@ export function startTracking(sub: Effect): void {
  * 结束追踪依赖，找到需要清理的依赖，断开关联关系
  * @param sub
  */
-export function endTracking(sub: Effect): void {
+export function endTracking(sub: Subscriber): void {
   sub.tracking = false
   const depsTail = sub.depsTail
   /**

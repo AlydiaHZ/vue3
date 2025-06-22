@@ -39,13 +39,21 @@ function link(dep, sub) {
     sub.depsTail = newLink;
   }
 }
+function processComputedUpdate(sub) {
+  sub.update();
+  propagate(sub.subsHead);
+}
 function propagate(subs) {
   let link2 = subs;
   let queuedEffect = [];
   while (link2) {
     const sub = link2.sub;
     if (!sub.tracking) {
-      queuedEffect.push(sub);
+      if ("update" in sub) {
+        processComputedUpdate(sub);
+      } else {
+        queuedEffect.push(sub);
+      }
     }
     link2 = link2.nextSub;
   }
@@ -91,23 +99,22 @@ function clearTracking(link2) {
 }
 
 // packages/reactivity/src/effect.ts
-var activeSub = void 0;
 var ReactiveEffect = class {
   constructor(fn) {
     this.fn = fn;
   }
   depsHead;
   depsTail;
-  tracking = false;
+  tracking;
   run() {
     const prevSub = activeSub;
-    activeSub = this;
+    setActiveSub(this);
     startTracking(this);
     try {
       return this.fn();
     } finally {
+      setActiveSub(prevSub);
       endTracking(this);
-      activeSub = prevSub;
     }
   }
   /**
@@ -131,10 +138,17 @@ function effect(fn, options) {
   runner.effect = e;
   return runner;
 }
+var activeSub = void 0;
+function setActiveSub(sub) {
+  activeSub = sub;
+}
 
 // packages/shared/src/index.ts
 function isObject(value) {
   return typeof value === "object" && value !== null;
+}
+function isFunction(value) {
+  return typeof value === "function";
 }
 function hasChanged(newValue, oldValue) {
   return !Object.is(newValue, oldValue);
@@ -245,18 +259,69 @@ function triggerRef(dep) {
 function isRef(r) {
   return r ? r["__v_isRef" /* IS_REF */] === true : false;
 }
+
+// packages/reactivity/src/computed.ts
+var ComputedRefImpl = class {
+  constructor(fn, setter) {
+    this.fn = fn;
+    this.setter = setter;
+  }
+  _value = void 0;
+  // Dependency
+  subsHead;
+  subsTail;
+  // Subscriber
+  depsHead;
+  depsTail;
+  tracking;
+  ["__v_isRef" /* IS_REF */] = true;
+  get value() {
+    this.update();
+    if (activeSub) link(this, activeSub);
+    return this._value;
+  }
+  set value(newValue) {
+    if (this.setter) {
+      this._value = newValue;
+    } else {
+      console.warn("readonly");
+    }
+  }
+  update() {
+    const prevSub = activeSub;
+    setActiveSub(this);
+    startTracking(this);
+    try {
+      this._value = this.fn();
+    } finally {
+      setActiveSub(prevSub);
+      endTracking(this);
+    }
+  }
+};
+function computed(getterOrOptions) {
+  let getter;
+  let setter;
+  if (isFunction(getterOrOptions)) {
+    getter = getterOrOptions;
+  } else {
+    getter = getterOrOptions.get;
+    setter = getterOrOptions.set;
+  }
+  return new ComputedRefImpl(getter, setter);
+}
 export {
+  ComputedRefImpl,
   ReactiveEffect,
   activeSub,
+  computed,
   effect,
   isReactive,
   isRef,
-  mutableHandlers,
   reactive,
   ref,
-  track,
+  setActiveSub,
   trackRef,
-  trigger,
   triggerRef
 };
 //# sourceMappingURL=reactivity.esm.js.map
