@@ -10,7 +10,8 @@ export interface Dependency {
 }
 
 export interface Subscriber {
-  tracking: Boolean
+  tracking: boolean
+  dirty: boolean
   depsHead: Link | undefined
   depsTail: Link | undefined
 }
@@ -113,9 +114,9 @@ export function propagate(subs: Link) {
   let queuedEffect = []
   while (link) {
     const sub = link.sub
-    if (!sub.tracking) {
+    if (!sub.tracking && !sub.dirty) {
+      sub.dirty = true
       if ('update' in sub) {
-        sub.dirty = true
         processComputedUpdate(sub)
       } else {
         queuedEffect.push(sub)
@@ -142,6 +143,7 @@ export function startTracking(sub: Subscriber): void {
 export function endTracking(sub: Subscriber): void {
   sub.tracking = false
   const depsTail = sub.depsTail
+  sub.dirty = false
   /**
    * depsTail 有，并且还有 nextDep，我们应该把它们的依赖关系清除
    * depsTail 没有，并且头节点有，那就把所有的都清理掉

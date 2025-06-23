@@ -9,6 +9,15 @@ import {
 } from './system'
 import { ReactiveFlags } from './constants'
 import { activeSub, setActiveSub } from './effect'
+import { Ref } from './ref'
+
+interface BaseComputedRef<T, S = T> extends Ref<T, S> {
+  effect: ComputedRefImpl
+}
+
+export interface ComputedRef<T = any> extends BaseComputedRef<T> {
+  readonly value: T
+}
 
 export type ComputedGetter<T> = (oldValue?: T) => T
 export type ComputedSetter<T> = (newValue: T) => void
@@ -63,7 +72,6 @@ export class ComputedRefImpl<T = any> implements Dependency, Subscriber {
     try {
       const oldValue = this._value
       this._value = this.fn()
-      this.dirty = false
       return hasChanged(oldValue, this._value)
     } finally {
       // 执行完成后，恢复之前的 activeSub

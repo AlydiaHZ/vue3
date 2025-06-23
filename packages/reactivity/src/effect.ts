@@ -4,11 +4,17 @@ import { endTracking, Link, startTracking, Subscriber } from './system'
 export class ReactiveEffect<T = any> implements Subscriber {
   depsHead: Link | undefined
   depsTail: Link | undefined
-  tracking: Boolean | undefined
+  tracking: boolean = false
+  dirty: boolean = false
+  // 表示这个 effect 是否激活
+  active: boolean = true
 
   constructor(public fn: () => T) {}
 
   run(): T {
+    if (!this.active) {
+      return this.fn()
+    }
     const prevSub: Subscriber | undefined = activeSub
 
     // 每次执行 fn 之前，把 this 放到 activeSub 上面
@@ -35,6 +41,15 @@ export class ReactiveEffect<T = any> implements Subscriber {
    */
   scheduler() {
     this.run()
+  }
+
+  stop() {
+    if (this.active) {
+      // 清理依赖
+      startTracking(this)
+      endTracking(this)
+      this.active = false
+    }
   }
 }
 

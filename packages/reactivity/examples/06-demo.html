@@ -6,14 +6,15 @@
   import { computed, effect, ref } from '../dist/reactivity.esm.js'
 
   const count = ref(0)
-
-  const c = computed(() => {
-    console.count('computed')
-    return count.value * 0
-  })
+  //
+  // const c = computed(() => {
+  //   console.count('computed')
+  //   return count.value * 0
+  // })
 
   effect(() => {
-    console.log(c.value)
+    console.log(count.value)
+    count.value
   })
 
   setTimeout(() => {

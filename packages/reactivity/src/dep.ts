@@ -32,9 +32,9 @@ export function track(target: object, key: any): void {
 
 export function trigger(target: object, key: any): void {
   const depsMap = targetMap.get(target)
+  if (!depsMap) return
   const dep = depsMap.get(key)
-
-  if (!depsMap || !dep) return
+  if (!dep) return
 
   propagate(dep.subsHead)
 }

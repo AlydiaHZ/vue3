@@ -49,9 +49,9 @@ function propagate(subs) {
   let queuedEffect = [];
   while (link2) {
     const sub = link2.sub;
-    if (!sub.tracking) {
+    if (!sub.tracking && !sub.dirty) {
+      sub.dirty = true;
       if ("update" in sub) {
-        sub.dirty = true;
         processComputedUpdate(sub);
       } else {
         queuedEffect.push(sub);
@@ -68,6 +68,7 @@ function startTracking(sub) {
 function endTracking(sub) {
   sub.tracking = false;
   const depsTail = sub.depsTail;
+  sub.dirty = false;
   if (depsTail) {
     if (depsTail.nextDep) {
       clearTracking(depsTail.nextDep);
@@ -107,8 +108,14 @@ var ReactiveEffect = class {
   }
   depsHead;
   depsTail;
-  tracking;
+  tracking = false;
+  dirty = false;
+  // 表示这个 effect 是否激活
+  active = true;
   run() {
+    if (!this.active) {
+      return this.fn();
+    }
     const prevSub = activeSub;
     setActiveSub(this);
     startTracking(this);
@@ -130,6 +137,13 @@ var ReactiveEffect = class {
    */
   scheduler() {
     this.run();
+  }
+  stop() {
+    if (this.active) {
+      startTracking(this);
+      endTracking(this);
+      this.active = false;
+    }
   }
 };
 function effect(fn, options) {
@@ -178,8 +192,9 @@ function track(target, key) {
 }
 function trigger(target, key) {
   const depsMap = targetMap.get(target);
+  if (!depsMap) return;
   const dep = depsMap.get(key);
-  if (!depsMap || !dep) return;
+  if (!dep) return;
   propagate(dep.subsHead);
 }
 
@@ -299,7 +314,6 @@ var ComputedRefImpl = class {
     try {
       const oldValue = this._value;
       this._value = this.fn();
-      this.dirty = false;
       return hasChanged(oldValue, this._value);
     } finally {
       setActiveSub(prevSub);
@@ -318,6 +332,58 @@ function computed(getterOrOptions) {
   }
   return new ComputedRefImpl(getter, setter);
 }
+
+// packages/reactivity/src/watch.ts
+function watch(source, cb, options = {}) {
+  let { immediate, once, deep } = options;
+  if (once) {
+    const _cb = cb;
+    cb = (...args) => {
+      _cb(...args);
+      stop();
+    };
+  }
+  let getter;
+  if (isRef(source)) {
+    getter = () => source.value;
+  } else if (isReactive(source)) {
+    getter = () => source;
+    if (!deep) deep = true;
+  } else if (isFunction(source)) {
+    getter = source;
+  }
+  if (deep) {
+    const baseGetter = getter;
+    const depth = deep === true ? Infinity : deep;
+    getter = () => traverse(baseGetter(), depth);
+  }
+  let oldValue;
+  function job() {
+    const newValue = effect2.run();
+    cb(newValue, oldValue);
+    oldValue = newValue;
+  }
+  const effect2 = new ReactiveEffect(getter);
+  effect2.scheduler = job;
+  if (immediate) {
+    job();
+  } else {
+    oldValue = effect2.run();
+  }
+  function stop() {
+    effect2.stop();
+  }
+  return stop;
+}
+function traverse(value, depth = Infinity, seen = /* @__PURE__ */ new Set()) {
+  if (depth <= 0 || !isObject(value) || seen.has(value)) return value;
+  depth--;
+  seen.add(value);
+  for (const key in value) {
+    traverse(value[key], depth, seen);
+  }
+  return value;
+}
 export {
   ComputedRefImpl,
   ReactiveEffect,
@@ -330,6 +396,7 @@ export {
   ref,
   setActiveSub,
   trackRef,
-  triggerRef
+  triggerRef,
+  watch
 };
 //# sourceMappingURL=reactivity.esm.js.map
