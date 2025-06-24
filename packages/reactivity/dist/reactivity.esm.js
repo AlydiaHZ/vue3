@@ -166,6 +166,7 @@ function isObject(value) {
 function isFunction(value) {
   return typeof value === "function";
 }
+var isArray = Array.isArray;
 function hasChanged(newValue, oldValue) {
   return !Object.is(newValue, oldValue);
 }
@@ -193,9 +194,19 @@ function track(target, key) {
 function trigger(target, key) {
   const depsMap = targetMap.get(target);
   if (!depsMap) return;
-  const dep = depsMap.get(key);
-  if (!dep) return;
-  propagate(dep.subsHead);
+  const targetArray = isArray(target);
+  if (targetArray && key === "length") {
+    const length = target.length;
+    depsMap.forEach((dep, depKey) => {
+      if (depKey >= length || depKey === "length") {
+        propagate(dep.subsHead);
+      }
+    });
+  } else {
+    const dep = depsMap.get(key);
+    if (!dep) return;
+    propagate(dep.subsHead);
+  }
 }
 
 // packages/reactivity/src/baseHandlers.ts
@@ -211,12 +222,18 @@ var BaseReactiveHandler = class {
 var MutableReactiveHandler = class extends BaseReactiveHandler {
   set(target, key, newValue, receiver) {
     const oldValue = target[key];
-    const res = Reflect.set(target, key, newValue, receiver);
+    const targetIsArray = isArray(target);
+    const oldLength = targetIsArray ? target.length : 0;
     if (isRef(oldValue) && !isRef(newValue)) {
       oldValue.value = newValue;
-      return res;
+      return true;
     }
+    const res = Reflect.set(target, key, newValue, receiver);
     if (hasChanged(newValue, oldValue)) trigger(target, key);
+    const newLength = targetIsArray ? target.length : 0;
+    if (targetIsArray && newLength !== oldLength && key !== "length") {
+      trigger(target, "length");
+    }
     return res;
   }
 };
@@ -273,8 +290,50 @@ function triggerRef(dep) {
     propagate(dep.subsHead);
   }
 }
+var ObjectRefImpl = class {
+  constructor(_object, _key) {
+    this._object = _object;
+    this._key = _key;
+  }
+  ["__v_isRef" /* IS_REF */] = true;
+  get value() {
+    return this._object[this._key];
+  }
+  set value(newVal) {
+    this._object[this._key] = newVal;
+  }
+};
+function unref(ref2) {
+  return isRef(ref2) ? ref2.value : ref2;
+}
 function isRef(r) {
   return r ? r["__v_isRef" /* IS_REF */] === true : false;
+}
+function toRef(target, key) {
+  return new ObjectRefImpl(target, key);
+}
+function toRefs(target) {
+  const res = {};
+  for (const key in target) {
+    res[key] = new ObjectRefImpl(target, key);
+  }
+  return res;
+}
+function proxyRefs(target) {
+  return new Proxy(target, {
+    get(...args) {
+      const res = Reflect.get(...args);
+      return unref(res);
+    },
+    set(target2, key, newValue, receiver) {
+      const oldValue = target2[key];
+      if (isRef(oldValue) && !isRef(newValue)) {
+        oldValue.value = newValue;
+        return true;
+      }
+      return Reflect.set(target2, key, newValue, receiver);
+    }
+  });
 }
 
 // packages/reactivity/src/computed.ts
@@ -358,9 +417,17 @@ function watch(source, cb, options = {}) {
     getter = () => traverse(baseGetter(), depth);
   }
   let oldValue;
+  let cleanup = null;
+  function onCleanup(cb2) {
+    cleanup = cb2;
+  }
   function job() {
+    if (cleanup) {
+      cleanup();
+      cleanup = null;
+    }
     const newValue = effect2.run();
-    cb(newValue, oldValue);
+    cb(newValue, oldValue, onCleanup);
     oldValue = newValue;
   }
   const effect2 = new ReactiveEffect(getter);
@@ -392,11 +459,15 @@ export {
   effect,
   isReactive,
   isRef,
+  proxyRefs,
   reactive,
   ref,
   setActiveSub,
+  toRef,
+  toRefs,
   trackRef,
   triggerRef,
+  unref,
   watch
 };
 //# sourceMappingURL=reactivity.esm.js.map

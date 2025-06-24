@@ -3,6 +3,7 @@ import { type Dependency, type Link, link, propagate } from './system'
 import { hasChanged, isObject } from '@vue/shared'
 import { reactive } from './reactive'
 import { ReactiveFlags } from './constants'
+import { ComputedRef } from './computed'
 
 export interface Ref<T = any, S = T> {
   get value(): T
@@ -59,6 +60,60 @@ export function triggerRef(dep: RefImpl) {
   }
 }
 
+class ObjectRefImpl<T extends object, K extends keyof T> {
+  [ReactiveFlags.IS_REF] = true
+
+  constructor(
+    public _object: T,
+    public _key: K,
+  ) {}
+
+  get value() {
+    return this._object[this._key]
+  }
+
+  set value(newVal) {
+    this._object[this._key] = newVal
+  }
+}
+
+export function unref<T>(ref: Ref<T> | ComputedRef<T>): T {
+  return isRef(ref) ? ref.value : ref
+}
+
 export function isRef(r: any): r is Ref {
   return r ? r[ReactiveFlags.IS_REF] === true : false
+}
+
+export function toRef(target: Record<string, any>, key: string) {
+  return new ObjectRefImpl(target, key)
+}
+
+export function toRefs(target: Record<string, any>) {
+  const res = {}
+
+  for (const key in target) {
+    res[key] = new ObjectRefImpl(target, key)
+  }
+
+  return res
+}
+
+export function proxyRefs<T extends object>(target: T) {
+  return new Proxy(target, {
+    get(...args) {
+      const res = Reflect.get(...args)
+      return unref(res as any)
+    },
+    set(target, key, newValue, receiver) {
+      const oldValue = target[key]
+
+      if (isRef(oldValue) && !isRef(newValue)) {
+        oldValue.value = newValue
+        return true
+      }
+
+      return Reflect.set(target, key, newValue, receiver)
+    },
+  })
 }

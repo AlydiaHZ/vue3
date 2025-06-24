@@ -23,7 +23,7 @@ export interface Link {
   sub: Subscriber | Effect | Computed
   nextSub: Link | undefined
   prevSub: Link | undefined
-  dep: Dependency
+  dep: Dependency | Computed
   nextDep: Link | undefined
 }
 

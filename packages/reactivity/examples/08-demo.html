@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+  // import { watch, ref, reactive } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
+  import { watch, ref, reactive, effect } from '../dist/reactivity.esm.js'
+
+  const state = reactive(['a', 'b', 'c', 'd'])
+
+
+  effect(() => {
+    // console.log('state[3] ==> ', state[3])
+    console.log('state.length ==> ', state.length)
+  })
+
+  setTimeout(() => {
+    state.push('e')
+    console.log('state ==> ', state)
+  }, 1000)
+</script>
+</body>
+</html>

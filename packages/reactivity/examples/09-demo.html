@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+  // import { effect, reactive } from '../../../node_modules/vue/dist/vue.esm-browser.js'
+  import { watch, ref, reactive, effect, toRefs, proxyRefs } from '../dist/reactivity.esm.js'
+
+
+  const state = reactive({
+    name: '张三',
+    age: 18,
+  })
+
+  const setupState = proxyRefs({
+    ...toRefs(state),
+  })
+
+
+  effect(() => {
+    console.log(setupState.name)
+  })
+
+  setTimeout(() => {
+    setupState.name = '1'
+  }, 1000)
+</script>
+</body>
+</html>
