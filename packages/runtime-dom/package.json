@@ -1,15 +1,15 @@
 {
-  "name": "vue",
+  "name": "@vue/runtime-dom",
   "version": "1.0.0",
-  "description": "vue核心包",
-  "main": "dist/vue.cjs.js",
-  "module": "dist/vue.esm.js",
+  "description": "浏览器运行时",
+  "main": "dist/runtime-dom.cjs.js",
+  "module": "dist/runtime-dom.esm.js",
   "files": [
     "dist"
   ],
   "sideEffects": false,
   "buildOptions": {
-    "name": "Vue",
+    "name": "RuntimeDom",
     "formats": [
       "esm-bundler",
       "esm-browser",
@@ -18,6 +18,6 @@
     ]
   },
   "dependencies": {
-    "@vue/runtime-dom": "^3.5.17"
+    "@vue/runtime-core": "^3.5.17"
   }
 }

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "node scripts/dev.js reactivity --format esm"
+    "dev": "node scripts/dev.js --format esm"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +17,9 @@
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "vue": "^3.5.17"
+  },
+  "dependencies": {
+    "@vue/runtime-core": "^3.5.17",
+    "@vue/runtime-dom": "^3.5.17"
   }
 }
