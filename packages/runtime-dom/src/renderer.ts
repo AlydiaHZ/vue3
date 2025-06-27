@@ -18,8 +18,6 @@ export interface RendererOptions<
 
   createText(text: string): HostNode
 
-  createComment(text: string): HostNode
-
   setText(node: HostNode, text: string): void
 
   setElementText(node: HostElement, text: string): void

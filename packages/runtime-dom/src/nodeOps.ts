@@ -1,4 +1,6 @@
-export const nodeOps = {
+import { RendererOptions } from './renderer'
+
+export const nodeOps: Omit<RendererOptions<Node, Element>, 'patchProp'> = {
   // 插入节点
   insert(el, parent, anchor) {
     parent.insertBefore(el, anchor || null)
@@ -28,7 +30,7 @@ export const nodeOps = {
   },
   // 获取父节点
   parentNode(el) {
-    return el.parentNode
+    return el.parentNode as Element | null
   },
   // 获取下一个兄弟节点
   nextSibling(el) {
