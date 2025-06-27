@@ -1,3 +1,46 @@
+// packages/runtime-dom/src/nodeOps.ts
+var nodeOps = {
+  // 插入节点
+  insert(el, parent, anchor) {
+    parent.insertBefore(el, anchor || null);
+  },
+  // 创建元素
+  createElement(type) {
+    return document.createElement(type);
+  },
+  // 设置内容
+  setElementText(el, text) {
+    el.textContent = text;
+  },
+  // 移除元素
+  remove(el) {
+    const parentNode = el.parentNode;
+    if (parentNode) {
+      parentNode.removeChild(el);
+    }
+  },
+  // 创建文本节点
+  createText(text) {
+    return document.createTextNode(text);
+  },
+  // 设置文本节点
+  setText(node, text) {
+    return node.nodeValue = text;
+  },
+  // 获取父节点
+  parentNode(el) {
+    return el.parentNode;
+  },
+  // 获取下一个兄弟节点
+  nextSibling(el) {
+    return el.nextSibling;
+  },
+  // DOM 查询
+  querySelector(selector) {
+    return document.querySelector(selector);
+  }
+};
+
 // packages/runtime-dom/src/modules/patchClass.ts
 function patchClass(el, value) {
   if (value != void 0) {
@@ -572,66 +615,83 @@ function traverse(value, depth = Infinity, seen = /* @__PURE__ */ new Set()) {
 
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
-  console.log(options);
+  const render2 = (vnode, container) => {
+  };
+  return {
+    render: render2,
+    createApp(rootComponent) {
+      return {
+        mount(container) {
+        }
+      };
+    }
+  };
 }
 
-// packages/runtime-dom/src/nodeOps.ts
-var nodeOps = {
-  // 插入节点
-  insert(el, parent, anchor) {
-    parent.insertBefore(el, anchor || null);
-  },
-  // 创建元素
-  createElement(type) {
-    return document.createElement(type);
-  },
-  // 设置内容
-  setElementText(el, text) {
-    el.textContent = text;
-  },
-  // 移除元素
-  remove(el) {
-    const parentNode = el.parentNode;
-    if (parentNode) {
-      parentNode.removeChild(el);
+// packages/runtime-core/src/vnode.ts
+function createVNode(type, props, children) {
+  const vnode = {
+    __v_isVNode: true,
+    type,
+    props,
+    children,
+    // 做 diff 用的
+    key: props?.key,
+    // 虚拟节点要挂载的元素
+    el: null,
+    shapeFlag: 9
+  };
+  return vnode;
+}
+
+// packages/runtime-core/src/h.ts
+function h(type, propsOrChildren, children) {
+  let l = arguments.length;
+  if (l === 2) {
+    if (isArray(propsOrChildren)) {
+      return createVNode(type, null, propsOrChildren);
     }
-  },
-  // 创建文本节点
-  createText(text) {
-    return document.createTextNode(text);
-  },
-  // 设置文本节点
-  setText(node, text) {
-    return node.nodeValue = text;
-  },
-  // 获取父节点
-  parentNode(el) {
-    return el.parentNode;
-  },
-  // 获取下一个兄弟节点
-  nextSibling(el) {
-    return el.nextSibling;
-  },
-  // DOM 查询
-  querySelector(selector) {
-    return document.querySelector(selector);
+    if (isObject(propsOrChildren)) {
+      if (isVNode(propsOrChildren)) {
+        return createVNode(type, null, [propsOrChildren]);
+      }
+      return createVNode(type, propsOrChildren, children);
+    }
+    return createVNode(type, null, propsOrChildren);
+  } else {
+    if (l > 3) {
+      children = [...arguments].slice(2);
+    } else if (l === 3 && isVNode(children)) {
+      children = [children];
+    }
+    return createVNode(type, propsOrChildren, children);
   }
-};
+}
+function isVNode(value) {
+  return value?.__v_isVNode;
+}
 
 // packages/runtime-dom/src/index.ts
 var renderOps = { patchProp, ...nodeOps };
+var renderer = createRenderer(renderOps);
+function render(vnode, container) {
+  renderer.render(vnode, container);
+}
 export {
   ComputedRefImpl,
   ReactiveEffect,
   activeSub,
   computed,
   createRenderer,
+  createVNode,
   effect,
+  h,
   isReactive,
   isRef,
   proxyRefs,
   reactive,
   ref,
+  render,
   renderOps,
   setActiveSub,
   toRef,
