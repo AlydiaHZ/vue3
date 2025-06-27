@@ -10,16 +10,20 @@
   import { h, render, createRenderer } from '../../../node_modules/vue/dist/vue.esm-browser.prod.js'
   import { renderOps } from '../dist/vue.esm.js'
 
-
   const renderer = createRenderer(renderOps)
-  // const vnode2 = h('div', { style: 'background: yellow' }, 'hello world')
+
+  const vnode = h('div', {
+    id: 'aaa',
+  }, 'hello world')
+
   const vnode2 = h('div', {
     onClick() {
-      console.log('点击')
+      console.log('点击2')
     },
   }, 'hello world')
 
-  renderer.render(vnode2, app)
+  renderer.render(vnode, app)
+  // renderer.render(vnode2, app)
 </script>
 </body>
 </html>

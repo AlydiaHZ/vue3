@@ -1,6 +1,6 @@
 // packages/runtime-dom/src/modules/patchClass.ts
 function patchClass(el, value) {
-  if (value) {
+  if (value != void 0) {
     el.className = value;
   } else {
     el.removeAttribute("class");
@@ -77,21 +77,54 @@ function patchStyle(el, prev, next) {
 }
 
 // packages/runtime-dom/src/modules/patchEvent.ts
+function addEventListener(el, event, handler) {
+  el.addEventListener(event, handler);
+}
+function removeEventListener(el, event, handler) {
+  el.removeEventListener(event, handler);
+}
 var veiKey = Symbol("_vei");
-function patchEvent(el, rawName, prevValue, nextValue) {
-  const name = rawName.slice(2).toLowerCase();
-  el.addEventListener(rawName, nextValue);
+function patchEvent(el, rawName, eventValue) {
+  const invokers = el[veiKey] ??= {};
+  const existingInvoker = invokers[rawName];
+  if (eventValue && existingInvoker) {
+    existingInvoker.value = eventValue;
+  } else {
+    const name = rawName.slice(2).toLowerCase();
+    if (eventValue) {
+      const invoker = invokers[rawName] = createInvoker(eventValue);
+      addEventListener(el, name, invoker);
+    } else if (existingInvoker) {
+      removeEventListener(el, name, existingInvoker);
+      invokers[rawName] = void 0;
+    }
+  }
+}
+function createInvoker(eventValue) {
+  const invoker = (e) => invoker.value(e);
+  invoker.value = eventValue;
+  return invoker;
+}
+
+// packages/runtime-dom/src/modules/patchAttr.ts
+function patchAttr(el, key, value) {
+  if (value == void 0) {
+    el.removeAttribute(key);
+  } else {
+    el.setAttribute(key, value);
+  }
 }
 
 // packages/runtime-dom/src/patchProp.ts
 var patchProp = (el, key, prevValue, nextValue) => {
-  console.log(key, nextValue);
   if (key === "class") {
     patchClass(el, nextValue);
   } else if (key === "style") {
     patchStyle(el, prevValue, nextValue);
   } else if (isOn(key)) {
-    patchEvent(el, key, prevValue, nextValue);
+    patchEvent(el, key, nextValue);
+  } else {
+    patchAttr(el, key, nextValue);
   }
 };
 

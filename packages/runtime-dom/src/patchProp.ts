@@ -3,6 +3,7 @@ import { RendererOptions } from './renderer'
 import { isOn } from './general'
 import { patchStyle } from './modules/patchStyle'
 import { patchEvent } from './modules/patchEvent'
+import { patchAttr } from './modules/patchAttr'
 
 type DOMRendererOptions = RendererOptions<Node, Element>
 
@@ -22,12 +23,13 @@ export const patchProp: DOMRendererOptions['patchProp'] = (
   prevValue,
   nextValue,
 ) => {
-  console.log(key, nextValue)
   if (key === 'class') {
     patchClass(el, nextValue)
   } else if (key === 'style') {
     patchStyle(el, prevValue, nextValue)
   } else if (isOn(key)) {
-    patchEvent(el, key, prevValue, nextValue)
+    patchEvent(el, key, nextValue)
+  } else {
+    patchAttr(el, key, nextValue)
   }
 }
