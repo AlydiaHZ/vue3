@@ -3,5 +3,5 @@
   "singleQuote": true,
   "htmlWhitespaceSensitivity": "ignore",
   "trailingComma": "all",
-  "arrowParens": "avoid"
+  "arrowParens": "always"
 }

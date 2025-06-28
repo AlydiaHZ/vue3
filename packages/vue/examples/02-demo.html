@@ -7,11 +7,16 @@
 <body>
 <div id="app"></div>
 <script type="module">
-  import { render } from '../../../node_modules/vue/dist/vue.esm-browser.js'
-  import { h } from '../dist/vue.esm.js'
+  import { h, render } from '../dist/vue.esm.js'
 
-  const vnode = h('div', 'hello world')
-  render(vnode, app)
+  const app = document.querySelector('#app')
+
+  const vnode1 = h('div', { style: { color: 'red' } })
+  const vnode2 = h('div', { style: { background: 'blue', height: '100px' } },[
+    h('span','a')
+  ])
+  render(vnode1, app)
+  render(vnode2, app)
 </script>
 </body>
 </html>

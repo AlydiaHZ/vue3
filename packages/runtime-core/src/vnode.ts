@@ -1,8 +1,9 @@
 import { RendererNode } from './renderer'
 import { Ref } from '@vue/reactivity'
+import { isArray, isString, ShapeFlags } from '@vue/shared'
 
 export type VNodeRef = string | Ref
-export type VNodeTypes = string | VNode
+export type VNodeTypes = string
 
 export type VNodeProps = {
   key?: PropertyKey
@@ -21,9 +22,7 @@ type VNodeChildAtom =
 
 export type VNodeArrayChildren = Array<VNodeArrayChildren | VNodeChildAtom>
 
-export type VNodeChild = VNodeChildAtom | VNodeArrayChildren
-
-export type VNodeNormalizedChildren = string | VNodeArrayChildren | null
+export type VNodeNormalizedChildren = VNodeChildAtom | VNodeArrayChildren
 
 export interface VNode<
   HostNode = RendererNode,
@@ -52,9 +51,20 @@ export interface VNode<
 export function createVNode(
   type: VNodeTypes,
   props: VNodeProps,
-  children,
+  children: unknown = null,
 ): VNode {
-  const vnode: VNode = {
+  let shapeFlag: number
+
+  if (isString(type)) {
+    shapeFlag = ShapeFlags.ELEMENT
+  }
+
+  if (isString(children)) {
+    shapeFlag |= ShapeFlags.TEXT_CHILDREN
+  } else if (isArray(children)) {
+    shapeFlag |= ShapeFlags.ARRAY_CHILDREN
+  }
+  const vnode = {
     __v_isVNode: true,
     type,
     props,
@@ -63,8 +73,15 @@ export function createVNode(
     key: props?.key,
     // 虚拟节点要挂载的元素
     el: null,
-    shapeFlag: 9,
-  }
-
+    shapeFlag: shapeFlag,
+  } as VNode
   return vnode
+}
+
+export function isVNode(value: any) {
+  return value?.__v_isVNode
+}
+
+export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
+  return n1.type === n2.type && n1.key === n2.key
 }

@@ -24,9 +24,9 @@ h(Component, null, {})
 **/
 
 import { isArray, isObject } from '@vue/shared'
-import { createVNode } from './vnode'
+import { createVNode, isVNode, VNode } from './vnode'
 
-export function h(type: any, propsOrChildren?: any, children?: any) {
+export function h(type: any, propsOrChildren?: any, children?: any): VNode {
   /**
    * h 函数，主要的作用是对一个 createVNode 做一个参数归一化
    */
@@ -57,8 +57,4 @@ export function h(type: any, propsOrChildren?: any, children?: any) {
     }
     return createVNode(type, propsOrChildren, children)
   }
-}
-
-function isVNode(value: any) {
-  return value?.__v_isVNode
 }

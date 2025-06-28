@@ -54,7 +54,7 @@ function patchClass(el, value) {
 var isOn = (key) => key.charCodeAt(0) === 111 && key.charCodeAt(1) === 110 && // uppercase letter
 (key.charCodeAt(2) > 122 || key.charCodeAt(2) < 97);
 
-// packages/shared/src/index.ts
+// packages/shared/src/utils.ts
 var EMPTY_ARR = Object.freeze([]);
 var isArray = Array.isArray;
 var isFunction = (val) => typeof val === "function";
@@ -96,7 +96,6 @@ function patchStyle(el, prev, next) {
     if (prev) {
       if (!isString(prev)) {
         for (const key in prev) {
-          console.log(1);
           if (next[key] == null) style[key] = null;
         }
       } else {
@@ -613,23 +612,17 @@ function traverse(value, depth = Infinity, seen = /* @__PURE__ */ new Set()) {
   return value;
 }
 
-// packages/runtime-core/src/renderer.ts
-function createRenderer(options) {
-  const render2 = (vnode, container) => {
-  };
-  return {
-    render: render2,
-    createApp(rootComponent) {
-      return {
-        mount(container) {
-        }
-      };
-    }
-  };
-}
-
 // packages/runtime-core/src/vnode.ts
-function createVNode(type, props, children) {
+function createVNode(type, props, children = null) {
+  let shapeFlag;
+  if (isString(type)) {
+    shapeFlag = 1 /* ELEMENT */;
+  }
+  if (isString(children)) {
+    shapeFlag |= 8 /* TEXT_CHILDREN */;
+  } else if (isArray(children)) {
+    shapeFlag |= 16 /* ARRAY_CHILDREN */;
+  }
   const vnode = {
     __v_isVNode: true,
     type,
@@ -639,9 +632,135 @@ function createVNode(type, props, children) {
     key: props?.key,
     // 虚拟节点要挂载的元素
     el: null,
-    shapeFlag: 9
+    shapeFlag
   };
   return vnode;
+}
+function isVNode(value) {
+  return value?.__v_isVNode;
+}
+function isSameVNodeType(n1, n2) {
+  return n1.type === n2.type && n1.key === n2.key;
+}
+
+// packages/runtime-core/src/renderer.ts
+function createRenderer(options) {
+  return baseCreateRenderer(options);
+}
+function baseCreateRenderer(options) {
+  const {
+    insert: hostInsert,
+    remove: hostRemove,
+    patchProp: hostPatchProp,
+    createElement: hostCreateElement,
+    setElementText: hostSetElementText
+  } = options;
+  const patch = (n1, n2, container) => {
+    if (n1 === n2) return;
+    if (n1 && !isSameVNodeType(n1, n2)) {
+      unmount(n1);
+      n1 = null;
+    }
+    if (n1 == null) {
+      mountElement(n2, container);
+    } else {
+      patchElement(n1, n2);
+    }
+  };
+  const patchProps = (el, oldProps, newProps) => {
+    if (oldProps) {
+      for (const key in oldProps) {
+        hostPatchProp(el, key, oldProps[key], null);
+      }
+    }
+    if (newProps) {
+      for (const key in newProps) {
+        hostPatchProp(el, key, oldProps?.[key], newProps[key]);
+      }
+    }
+  };
+  const patchChildren = (n1, n2) => {
+    const el = n2.el;
+    const prevShapeFlag = n1.shapeFlag;
+    const shapeFlag = n2.shapeFlag;
+    if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+      if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+        unmountChildren(n1.children);
+      }
+      if (n1.children !== n2.children) {
+        hostSetElementText(el, n2.children);
+      }
+    } else {
+      if (prevShapeFlag & 8 /* TEXT_CHILDREN */) {
+        hostSetElementText(el, "");
+        if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+          mountChildren(n2.children, el);
+        }
+      } else {
+        if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+          if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+          } else {
+            unmountChildren(n1.children);
+          }
+        } else {
+          if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+            mountChildren(n2.children, el);
+          }
+        }
+      }
+    }
+  };
+  const patchElement = (n1, n2) => {
+    const el = n2.el = n1.el;
+    const oldProps = n1.props;
+    const newProps = n2.props;
+    patchProps(el, oldProps, newProps);
+    patchChildren(n1, n2);
+  };
+  const mountElement = (vnode, container) => {
+    const { type, props, children, shapeFlag } = vnode;
+    const el = hostCreateElement(type);
+    vnode.el = el;
+    if (props) {
+      for (const key in props) {
+        hostPatchProp(el, key, null, props[key]);
+      }
+    }
+    if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+      hostSetElementText(el, children);
+    } else {
+      if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+        mountChildren(children, el);
+      }
+    }
+    hostInsert(el, container);
+  };
+  const mountChildren = (children, el) => {
+    for (const child of children) patch(null, child, el);
+  };
+  const unmountChildren = (children) => {
+    for (const child of children) unmount(child);
+  };
+  const unmount = (vnode) => {
+    const { children, shapeFlag } = vnode;
+    if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+      unmountChildren(children);
+    }
+    hostRemove(vnode.el);
+  };
+  const render2 = (vnode, container) => {
+    if (vnode == null) {
+      if (container._vnode) {
+        unmount(container._vnode);
+      }
+    } else {
+      patch(container._vnode || null, vnode, container);
+    }
+    container._vnode = vnode;
+  };
+  return {
+    render: render2
+  };
 }
 
 // packages/runtime-core/src/h.ts
@@ -667,9 +786,6 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
-function isVNode(value) {
-  return value?.__v_isVNode;
-}
 
 // packages/runtime-dom/src/index.ts
 var renderOps = { patchProp, ...nodeOps };
@@ -688,6 +804,8 @@ export {
   h,
   isReactive,
   isRef,
+  isSameVNodeType,
+  isVNode,
   proxyRefs,
   reactive,
   ref,

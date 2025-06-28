@@ -16,7 +16,6 @@ export function patchStyle(el: Element, prev: Style, next: Style): void {
       if (!isString(prev)) {
         // { color: 'red' }
         for (const key in prev) {
-          console.log(1)
           if (next[key] == null) style[key] = null
         }
       } else {
