@@ -7,6 +7,8 @@ export interface RendererNode {
 
 export interface RendererElement extends RendererNode {}
 
+type Data = Record<string, unknown>
+
 export interface RendererOptions<
   HostNode = RendererNode,
   HostElement = RendererElement,
@@ -54,7 +56,12 @@ function baseCreateRenderer(options: RendererOptions) {
     setElementText: hostSetElementText,
   } = options
 
-  const patch = (n1: VNode, n2: VNode, container: RendererElement) => {
+  const patch = (
+    n1: VNode,
+    n2: VNode,
+    container: RendererElement,
+    anchor: RendererNode = null,
+  ): void => {
     /**
      * 更新和挂载，都用这个函数
      * @param n1 老节点，之前的，如果有，表示要个 n2 做 diff，更新，如果没有，表示直接挂载 n2
@@ -71,18 +78,14 @@ function baseCreateRenderer(options: RendererOptions) {
 
     if (n1 == null) {
       // 挂载
-      mountElement(n2, container)
+      mountElement(n2, container, anchor)
     } else {
       // 更新
       patchElement(n1, n2)
     }
   }
 
-  const patchProps = (
-    el: RendererElement,
-    oldProps: Record<string, unknown>,
-    newProps: Record<string, unknown>,
-  ) => {
+  const patchProps = (el: RendererElement, oldProps: Data, newProps: Data) => {
     /**
      * 1. 删除老的 props
      * 2. 新增 props
@@ -134,7 +137,11 @@ function baseCreateRenderer(options: RendererOptions) {
           // 老的是数组
           if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
             // 新的也是数组
-            // TODO
+            patchKeyedChildren(
+              n1.children as VNode[],
+              n2.children as VNode[],
+              el,
+            )
           } else {
             // 新的不是数组，卸载老的数组
             unmountChildren(n1.children as VNode[])
@@ -147,6 +154,74 @@ function baseCreateRenderer(options: RendererOptions) {
         }
       }
     }
+  }
+
+  const patchKeyedChildren = (
+    c1: VNode[],
+    c2: VNode[],
+    container: RendererElement,
+  ) => {
+    // 开始对比的下标
+    let i = 0
+    // 老的子节点的最后一个元素的下标
+    let e1 = c1.length - 1
+    // 新的子节点的最后一个元素的下标
+    let e2 = c2.length - 1
+    /**
+     * 1.1 头部对比
+     *   c1 => [a, b]
+     *   c2 => [a, b, c]
+     * 开始时: i = 0, e1 = 0, e2 = 0
+     * 结束时: i = 0, e1 = 2, e2 = 1
+     */
+    while (i <= e1 && i <= e2) {
+      const n1 = c1[i]
+      const n2 = c2[i]
+
+      if (isSameVNodeType(n1, n2)) {
+        // 如果 n1 和 n2 是同一个类型的子节点,直接 patch
+        patch(n1, n2, container)
+      } else {
+        break
+      }
+
+      i++
+    }
+    /**
+     * 1.2 尾部对比
+     *  c1 => [a, b]
+     *  c2 => [c, a, b]
+     * 开始时: i = 0, e1 = 1, e2 = 2
+     * 结束时: i = 0, e1 = -1, e2 = 0
+     */
+    while (i <= e1 && i <= e2) {
+      const n1 = c1[e1]
+      const n2 = c2[e2]
+
+      if (isSameVNodeType(n1, n2)) {
+        // 如果 n1 和 n2 是同一个类型的子节点,直接 patch
+        patch(n1, n2, container)
+      } else {
+        break
+      }
+
+      e1--
+      e2--
+    }
+    if (i > e1) {
+      // 表示老的少,新的多,要挂载新的,范围 i - e2
+      const nextPos = e2 + 1
+      const anchor = nextPos < c2.length ? c2[nextPos].el : null
+      while (i <= e2) {
+        patch(null, c2[i++], container, anchor)
+      }
+    } else if (i > e2) {
+      // 表示老的多,新的少,要卸载老的,范围 i - e1
+      while (i <= e1) {
+        unmount(c1[i++])
+      }
+    }
+    console.log('i,e1,e2 ==> ', i, e1, e2)
   }
 
   const patchElement = (n1: VNode, n2: VNode) => {
@@ -167,7 +242,11 @@ function baseCreateRenderer(options: RendererOptions) {
     patchChildren(n1, n2)
   }
 
-  const mountElement = (vnode: VNode, container: RendererElement) => {
+  const mountElement = (
+    vnode: VNode,
+    container: RendererElement,
+    anchor: RendererNode = null,
+  ) => {
     /**
      * 1. 创建一个 DOM 节点
      * 2. 设置 props
@@ -192,7 +271,7 @@ function baseCreateRenderer(options: RendererOptions) {
         mountChildren(children as VNode[], el)
       }
     }
-    hostInsert(el, container)
+    hostInsert(el, container, anchor)
   }
 
   const mountChildren = (children: VNodeArrayChildren, el: RendererElement) => {
