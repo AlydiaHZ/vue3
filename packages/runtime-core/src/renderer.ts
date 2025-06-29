@@ -220,6 +220,55 @@ function baseCreateRenderer(options: RendererOptions) {
       while (i <= e1) {
         unmount(c1[i++])
       }
+    } else {
+      /**
+       * 2. 乱序
+       * c1 => [a, (b, c, d), e]
+       * c2 => [a, (c, d, b), e]
+       * 开始时: i = 0, e1 = 4, e2 = 4
+       * 双端对比完结果: i = 1, e1 = 3, e2 = 3
+       */
+      let s1 = i
+      let s2 = i
+      /**
+       * 做一份新的子节点的 key 和 index 之间的映射关系
+       * map = {
+       *   c:1,
+       *   d:2,
+       *   b:3
+       * }
+       */
+      const keyToNewIndexMap = new Map()
+
+      for (let j = s2; j <= e2; j++) {
+        const n2 = c2[j]
+        keyToNewIndexMap.set(n2.key, j)
+      }
+      // 遍历老的子节点
+      for (let j = s1; j <= e1; j++) {
+        const n1 = c1[j]
+        // 看一下这个 key 在新的里面有没有
+        const newIndex = keyToNewIndexMap.get(n1.key)
+        if (newIndex != null) {
+          // 如果有,就patch
+          patch(n1, c2[newIndex], container)
+        } else {
+          // 如果没有,表示老的有,新的没有
+          unmount(n1)
+        }
+      }
+
+      for (let j = e2; j >= s2; j--) {
+        // 倒序导入
+        const n2 = c2[j]
+        const anchor = c2[j + 1]?.el || null
+
+        if (n2.el) {
+          hostInsert(n2.el, container, anchor)
+        } else {
+          patch(null, n2, container, anchor)
+        }
+      }
     }
     console.log('i,e1,e2 ==> ', i, e1, e2)
   }

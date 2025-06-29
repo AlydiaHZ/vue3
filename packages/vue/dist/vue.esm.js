@@ -750,6 +750,32 @@ function baseCreateRenderer(options) {
       while (i <= e1) {
         unmount(c1[i++]);
       }
+    } else {
+      let s1 = i;
+      let s2 = i;
+      const keyToNewIndexMap = /* @__PURE__ */ new Map();
+      for (let j = s2; j <= e2; j++) {
+        const n2 = c2[j];
+        keyToNewIndexMap.set(n2.key, j);
+      }
+      for (let j = s1; j <= e1; j++) {
+        const n1 = c1[j];
+        const newIndex = keyToNewIndexMap.get(n1.key);
+        if (newIndex != null) {
+          patch(n1, c2[newIndex], container);
+        } else {
+          unmount(n1);
+        }
+      }
+      for (let j = e2; j >= s2; j--) {
+        const n2 = c2[j];
+        const anchor = c2[j + 1]?.el || null;
+        if (n2.el) {
+          hostInsert(n2.el, container, anchor);
+        } else {
+          patch(null, n2, container, anchor);
+        }
+      }
     }
     console.log("i,e1,e2 ==> ", i, e1, e2);
   };
